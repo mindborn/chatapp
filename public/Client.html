@@ -1,0 +1,363 @@
+<html>
+<link rel="stylesheet" type="text/css" href="chatClient.css">
+
+<head>
+  <meta charset="utf-8">
+  <title>WebSockets - Simple chat</title>
+  <style>
+    * {
+      font-family: tahoma;
+      font-size: 12px;
+      padding: 0px;
+      margin: 0px;
+    }
+
+    p {
+      line-height: 18px;
+    }
+
+    div {
+      width: 500px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    #content {
+      padding: 5px;
+      background: #ddd;
+      border-radius: 5px;
+      overflow-y: scroll;
+      border: 1px solid #CCC;
+      margin-top: 10px;
+      height: 160px;
+    }
+
+    #input {
+      border-radius: 2px;
+      border: 1px solid #ccc;
+      margin-top: 10px;
+      padding: 5px;
+      width: 400px;
+    }
+
+    #status {
+      width: 88px;
+      display: block;
+      float: left;
+      margin-top: 15px;
+    }
+  </style>
+
+  <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+
+  <script>
+    var clientid = "<%= name %>";
+    let sessionid;
+    let choice;
+    let connection;
+    //import { handleAgentLogin } from './ChatServerNew.ts';
+    //var csn=new ChatServerNew();
+    $(function () {
+      "use strict";
+      // for better performance - to avoid searching in DOM
+      var content = $('#content');
+      var input = $('#input');
+      var status = $('#status');
+      // my color assigned by the server
+      var myColor = false;
+      // my name sent to the server
+      var myName = false;
+      // if user is running mozilla then use it's built-in WebSocket
+      window.WebSocket = window.WebSocket || window.MozWebSocket;
+      // if browser doesn't support WebSocket, just show
+      // some notification and exit
+      if (!window.WebSocket) {
+        content.html($('<p>',
+          { text: 'Sorry, but your browser doesn\'t support WebSocket.' }
+        ));
+        input.hide();
+        $('span').hide();
+        return;
+      }
+      // open connection
+      connection = new WebSocket('ws://127.0.0.1:1337');
+      connection.onopen = function () {
+        // first we want users to enter their names
+        input.removeAttr('disabled');
+    
+        var decodedCookie = document.cookie;
+        //let cookieval=document.cookie;
+        console.log("cookie " + decodedCookie);
+        let cookies = decodedCookie.split(';');
+        let token = '';
+        for (let i = 0; i < cookies.length; i++) {
+          let c = cookies[i];
+          let kv = c.split('=');
+          if (kv[0] === 'token') {
+            token = kv[1];
+            break;
+          }
+        }
+        console.log('found token', token);
+
+        ///retrieve cookie
+        //connection.send('user');
+
+        connection.send(JSON.stringify({ command: 'LOGIN_USER', token: token }));
+      };
+      connection.onerror = function (error) {
+        // just in there were some problems with connection...
+        content.html($('<p>', {
+          text: 'Sorry, but there\'s some problem with your '
+            + 'connection or the server is down.'
+        }));
+      };
+      // most important part - incoming messages
+      connection.onmessage = function (message) {
+        // try to parse JSON message. Because we know that the server
+        // always returns JSON this should work without any problem but
+        // we should make sure that the massage is not chunked or
+        // otherwise damaged.
+        try {
+          var json = JSON.parse(message.data);
+          if (json.command === "USER_LOGIN" && json.status === "success") {
+            sessionid = json.sessionid;
+            myName=json.Name;
+            console.log("Name:"+myName);
+            status.text(myName + ': ');
+            alert("Ask if any query");
+			var output = document.getElementById("content");
+    output.innerHTML += 'Hello ' + myName+","+"\n" ;
+                // load next question		
+                output.innerHTML+="Enter the choice regarding the machine whose information you would like"+"\n";
+                output.innerHTML +="1.5Axis"+"\n"+"2.Parallel Axis"+"\n"+"3.Axis"+"\n"+"4.Not cleared click on send"+"\n"+"5.Cleared"+"\n";
+    
+   $(document).keypress(function(e) {
+  if (e.which == 13) {
+    choice= document.getElementById("input").value;
+    console.log("Choice"+choice+typeof choice);
+    document.getElementById("input").value = ""; 
+    output.innerHTML+="Choice:"+choice+"\n";
+    var c=parseInt(choice);
+    bot(c);													
+  }
+});    
+ function bot(c)
+ {
+   var choice=c;
+ //do
+  //{
+  //  output.innerHTML +="1.5Axis"+"\n"+"2.Parallel Axis"+"\n"+"3.Axis"+"\n"+"4.Not cleared click on send"+"\n"+"5.Cleared"+"\n";
+//If Agent not available waiting for some time interval
+switch(choice)
+{
+	case 1:output.innerHTML+="5 Axis info"+"\n";
+			break;
+	case 2:output.innerHTML+="parallel Axis info"+"\n";
+			break;
+	case 3:output.innerHTML+="Axis info"+"\n";
+			break;
+	case 4:output.innerHTML+="Enter your Query and Click on send"+"\n";
+			//send
+			break;
+	default:output.innerHTML+="Thank you"+"\n" ;
+			break;
+}
+ 
+  //}while(choice<=4);
+ }
+    }
+          else if(json.command==='MESSAGE')
+          {
+            $('#content').val($('#content').val()+'\n'+json.from+':'+json.text);
+          }
+          else if(json.command==="LEAVE" && json.status=="success")
+          {
+            alert("Chat closed");
+          
+          }
+          else if(json.command==="DISCONNECT")
+         {
+                        alert("Chat Closed by Agent");
+         } 
+          else if(json.command==="HISTORY" && json.status=="success")
+          {
+            let doc=(json.docs);
+            alert("Display History");
+            console.log("docs history:"+doc+":"+doc.length);
+            document.getElementById("content").value="";
+            for(let i=0;i<doc.length;i++)
+            {
+              console.log(doc[i]);
+              
+            document.getElementById("content").value +=doc[i].from+":"+doc[i].text+"\n";
+            }
+          }
+           else 
+           {
+             alert("Must login");
+          //   window.location.href='http://localhost:8888/loginclient';
+           }
+        } catch (e) {
+          console.log('Invalid JSON: ', message.data);
+          return;
+        }
+        // NOTE: if you're not sure about the JSON structure
+        // check the server source code above
+        // first response from the server with user's color
+      }
+
+      $('#btn_send').on('click',()=>{
+        connection.send(JSON.stringify({command:'MESSAGE',from:myName,sessionid:sessionid,text:$('#input').val()}));
+        $('#input').val('');
+      });
+      $('#btn_close').on('click',()=>{
+        connection.send(JSON.stringify({command:'LEAVE'}));
+      
+      });
+      $('#btn_history').on('click',()=>{
+        connection.send(JSON.stringify({command:'HISTORY',userid:myName}));
+      
+      });
+    });
+
+  </script>
+</head>
+
+<body>
+   
+    
+    <br>
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  
+  <textarea style="width:400px" id="content"></textarea>
+  <div>
+    <span id="status">Connecting...</span>
+    <input type="text" id="input" />
+
+  </div>
+  <div>
+    <br>
+
+    <!-- <button class="button1" onclick="window.open('http://localhost:8888/adduserstatus')">Start</button> -->
+    
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    <button style="border-radius: 12px;font-size: 20px;color: #0A84B0" id="btn_send">Send</button>
+ 
+
+    <img src="chaticon.png" width="50" height="50">
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    <button style="border-radius: 12px;font-size: 20px;color: #0A84B0" id="btn_close" >
+      Close
+    </button>
+    <img src="closechat.png" width="50" height="">
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    <button style="border-radius: 12px;font-size: 20px;color: #0A84B0" id="btn_history" >
+      History
+    </button>
+    <img src="history.png" width="50" height="">
+    
+   <br>
+    
+    &nbsp;
+    &nbsp; &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    &nbsp;
+    
+
+    <button class="button2" onclick="window.open('http://localhost:8888/NewSiteClient')">
+      Home
+    </button>
+    <img src="home.png" width="50" height="">
+
+
+  </div>
+
+</body>
+
+</html>

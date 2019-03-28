@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+    
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+    <style>
+        .maincontainer {
+            display: table;
+            flex-direction: row;
+            box-sizing: border-box;
+        }
+        .text_message{
+            width:370px;
+            height:40px;
+            border-radius: 5px;
+            border: 1px solid rgba(109, 116, 119, 0.753);
+        }
+    
+        .container {
+            display: table-cell;
+            flex-basis: 60%;
+            margin: auto;
+            box-sizing: border-box;
+            align-self: center; 
+        }
+
+        .userlistcontainer {
+            display: table-cell;
+            flex-basis: 40%;
+            box-sizing: border-box;
+        }
+
+        #tabbar {
+            width: 113%;
+            background-color: #f0f0f0;
+        }
+
+        #tabbar div {
+            vertical-align: center;
+            display: inline-block;
+            height: 2rem;
+            margin: 0;
+            padding: 10px 40px;
+            background-color: #f0f0f0;
+            transition: 0.2s linear;
+            cursor: pointer;
+        }
+
+        #tabbar div.active {
+            background-color: rgb(73, 183, 223);
+            transition: 0.2s linear;
+        }
+
+        #tabcontainer {
+            width: 100%;
+            position: relative;
+
+        }
+
+        #tabcontainer .tabcontent {
+            width: 100%;
+            position: absolute;
+            left: 0;
+            top: 0;
+
+        }
+
+        #tabcontainer .tabcontent textarea {
+            display: block;
+            width: 100%;
+            margin: 0;
+            padding: 20px;
+            height: 65vh;
+        }
+        .tabcontent{
+            align-self: center;
+        }
+
+        span.counter
+        {
+            display: inline-block;
+            width: 1.2rem;
+            height: 1.2rem;
+            line-height: 1.2rem;
+            text-align: center;
+            border-radius: 50%;
+            background:red;
+            color: white;
+        }
+
+    </style>
+
+    <script>
+        let connection;
+        let name;
+        let clientName;
+        $(function () {
+            "use strict";
+            // for better performance - to avoid searching in DOM
+            var content = $('#content');
+            var input = $('#input');
+            var status = $('#status');
+            // my color assigned by the server
+            var myColor = false;
+            // my name sent to the server
+            var myName = false;
+            // if user is running mozilla then use it's built-in WebSocket
+            window.WebSocket = window.WebSocket || window.MozWebSocket;
+            // if browser doesn't support WebSocket, just show
+            // some notification and exit
+            if (!window.WebSocket) {
+                content.html($('<p>',
+                    { text: 'Sorry, but your browser doesn\'t support WebSocket.' }
+                ));
+                input.hide();
+                $('span').hide();
+                return;
+            }
+            // open connection
+            connection = new WebSocket('ws://127.0.0.1:1337');
+            connection.onopen = function () {
+                // first we want users to enter their names
+                input.removeAttr('disabled');
+                status.text(name);
+                var decodedCookie = document.cookie;
+                //let cookieval=document.cookie;
+                console.log("cookie " + decodedCookie);
+                let cookies = decodedCookie.split(';');
+                let token = '';
+                for (let i = 0; i < cookies.length; i++) {
+                    let c = cookies[i];
+                    let kv = c.split('=');
+                    if (kv[0] === 'token') {
+                        token = kv[1];
+                        break;
+                    }
+                }
+                console.log('found token', token);
+
+                ///retrieve cookie
+                //connection.send('user');
+
+                connection.send(JSON.stringify({ command: 'LOGIN_AGENT', token: token }));
+            };
+            connection.onerror = function (error) {
+                // just in there were some problems with connection...
+                content.html($('<p>', {
+                    text: 'Sorry, but there\'s some problem with your '
+                        + 'connection or the server is down.'
+                }));
+            };
+            // most important part - incoming messages
+            connection.onmessage = function (message) {
+                // try to parse JSON message. Because we know that the server
+                // always returns JSON this should work without any problem but
+                // we should make sure that the massage is not chunked or
+                // otherwise damaged.
+                try {
+                    var json = JSON.parse(message.data);
+                    if (json.command === "AGENT_LOGIN" && json.status === "success") {
+                        let sessionid = json.sessionid;
+                        name=json.Name;
+                        console.log("Agent name:"+name);
+                        alert("Ask if any query");
+
+                        startJoinRequests();
+                    }
+                    else if (json.command === "MESSAGE") {
+                        
+                        //tab['counter']=counter;
+                        clientName=json.from;
+                        getTab(json.sessionid).addmessage(json.from + ':' + json.text);
+                        console.log("json.sessionid"+json.sessionid);
+                        console.log("activetab.sessionid"+activetab.sessionid);
+                        if(json.from!==name)
+                        {
+                        getTab(json.sessionid).setclientname(json.from);
+                        }
+                        if(json.sessionid!==activetab.sessionid)
+                        {
+                          //  counter++;
+                            console.log(getTab(json.sessionid).setcount);
+                            getTab(json.sessionid).setcount(1);                            
+                        }
+                    }
+                    else if (json.command === 'JOIN' && json.status==='success') {
+                        setNewSession(json.sessionid);
+                    }
+                    else if(json.command==="LEAVE" && json.status=="success")
+                    {
+                        alert("Chat closed");
+
+                    }
+                    else if(json.command==="DISCONNECT")
+                    {
+                        alert("Chat Closed at sessionid:"+json.sessionid);
+                    }
+
+                    // else {
+                    //     alert("Must login");
+                    //     window.location.href = 'http://localhost:8888/loginagent';
+                    // }
+                } catch (e) {
+                    console.log('Invalid JSON: ', message.data);
+                    return;
+                }
+                // NOTE: if you're not sure about the JSON structure
+                // check the server source code above
+                // first response from the server with user's color
+            }
+        });
+        function ChatTab() {
+            this.tab = null;
+            this.content = null;
+            this.sessionid = 0;
+
+            setuser(username)
+            {
+                //send 
+            }
+        }
+
+        let n = 3;
+
+        let activetab = null;
+        let tablist = [];
+
+        $(document).ready(() => {
+            let tabbar = $('#tabbar');
+            let tabcontainer = $('#tabcontainer');
+            let tabcontent = $('.tabcontent');
+
+            for (let i = 0; i < n; i++) {
+                let t = $(`<div></div>`);
+                let clientname=$('<span>xyz</span>');
+                let counter=$('<span class="counter">0</span>');
+                t.append(clientname);
+                t.append(counter);
+                tabbar.append(t);
+                let tc = tabcontent.clone();
+                // tc.css('display','block');
+                tabcontainer.append(tc);
+                let tab = {};
+                tab['tab'] = t;
+                tab['content'] = tc;
+                tab['sessionid'] = null;
+                tab['text_history'] = tc.find('.text_history');
+                tab['text_message'] = tc.find('.text_message');
+                tab['addmessage'] = (message) => {
+                    tab.text_history.text(tab.text_history.val() + "\n" + message);
+                };
+                tab['counter']=counter;
+                tab['clientname']=clientname;                
+                tab['unreadcount']=0;
+
+                // tab.counter.html('0');
+                // tab.clientname.html('client1');
+                tab['setclientname']=function(name)
+                {
+                    console.log('setting clientname ',name);
+                    tab.clientname.html(name);
+                }
+                tab['setcount']=function(count)
+                {
+                    console.log('setting count ',count);
+                    if(count===0)
+                    {
+                        console.log('counter zero');
+                        tab.counter.css('visibility','hidden');
+                        tab.unreadcount=0;
+                    }
+                    else
+                    {                       
+                        //play sound 
+                        var x = document.getElementById("myAudio"); 
+                        x.play();
+                        tab.unreadcount+=count;
+                        tab.counter.html(tab.unreadcount);
+                        tab.counter.css('visibility','visible');
+                    }
+                };
+
+                tab.setcount(0);
+                tab.setclientname('-');
+
+                tc.find(".btn_send").on('click', () => {
+                    console.log('sending message', tab.text_message.val());
+                    connection.send(JSON.stringify({command:'MESSAGE', sessionid:tab.sessionid, from:name,text:tab.text_message.val()}));
+                    tab.text_message.val('');
+                    //agent name is sent
+                });
+                tc.find(".btn_close").on('click', () => {
+                    
+                    connection.send(JSON.stringify({command:'LEAVE',sessionid:tab.sessionid, agentid:agentid}));
+                    
+                });
+
+                t.click(() => {
+                    activetab.content.css('display', 'none');
+                    activetab.tab.removeClass('active');
+
+                    tab.content.css('display', 'block');
+                    tab.tab.addClass('active');
+                    tab.setcount(0);
+                    activetab = tab;
+                    //activetab.select('input').focus();
+                });
+
+                tablist.push(tab);
+            }
+            activetab = tablist[0];
+            activetab.content.css('display', 'block');
+            activetab.tab.addClass('active');
+
+        });//document.ready
+
+        function getTab(sessionid) {
+            for (let t of tablist) {
+                if (t.sessionid === sessionid)
+                    return t;
+            }
+            return null;
+        }
+
+        function setNewSession(sessionid)
+        {
+            for(let t of tablist)
+            {
+                if(!t.sessionid)
+                {
+                    t.sessionid=sessionid;
+                    t.addmessage('Joined to session '+sessionid);
+                    break;
+                }
+            }
+        }
+
+        function sendJoinRequest()
+        {
+            console.log('sending join request');
+            if(connection)
+            {
+                connection.send(JSON.stringify({command:'JOIN'}));
+            }
+        }
+
+        function startJoinRequests()
+        {
+            window.setInterval(()=>{
+                for(let t of tablist)
+                {
+                    if(!t.sessionid)
+                    {
+                        sendJoinRequest();
+                    }
+                }
+            },5000);
+        }
+
+    </script>
+</head>
+
+<body>
+
+    <div class="tabcontent" style="display:none;align-self:center">
+        <div>
+            <textarea style="height:350px; border-radius: 5px;border: 1px solid rgb(34, 33, 33)"class="text_history" readonly></textarea>
+            &nbsp;
+            &nbsp;
+            &nbsp;
+            &nbsp;
+            &nbsp;
+            &nbsp;
+            <br>
+            <input class="text_message" type="text" />
+            <br>
+            <br>
+            <div>
+            <button class="btn_send" style="border-radius: 12px;font-size: 20px;color: #0A84B0">Send</button>
+            <img src="chaticon.png" width="50" height="50">
+            &nbsp;
+            &nbsp;
+            &nbsp;
+            <button class="btn_close" style="border-radius: 12px;font-size: 20px;color: #0A84B0">Close</button>
+            <img src="closechat.png" width="50" height="50">
+        </div>
+        <audio id="myAudio">
+            <source src="Notify.mp3" type="audio/mp3">
+          
+            Your browser does not support the audio element.
+          </audio>
+        </div>
+    </div>
+
+
+    <div class="maincontaier">
+        <div class="container">
+
+            <div id="tabbar">
+
+            </div>
+            <div id="tabcontainer">
+
+            </div>
+        </div>
+<!-- 
+        <div class="userlistcontainer">
+            <h1>Active Users</h1>
+            <ul id="userlist">
+                <li>1</li>
+                <li>2</li>
+                <li>3</li>
+                <li>4</li>
+                <li>5</li>
+                <li>6</li>
+                <li>7</li>
+                <li>8</li>
+                <li>9</li>
+                <li>10</li>
+            </ul>
+            <br>
+           &nbsp;
+            &nbsp;
+            &nbsp;
+            &nbsp;
+            &nbsp; <button onclick="window.open('http://localhost:8888/addagentstatus')">Start</button>
+
+
+            &nbsp;
+            &nbsp;
+            &nbsp;
+            &nbsp;<button onclick="window.open('http://localhost:8888/addagentstatusclose')">
+                Close
+            </button>
+            &nbsp;
+            &nbsp;
+            &nbsp;
+            &nbsp;
+            <button class="button2" onclick="window.open('http://localhost:8888/getusers')">
+                User List
+            </button>
+        </div>
+        <script>
+
+            window.setInterval(() => {
+                getUsers();
+            }, 5000);
+
+            function getUsers() {
+                $.get("http://localhost:8888/getusers", (data) => {
+                    console.log(data);
+                    const userlist = $('#userlist');
+                    userlist.empty();
+                    for (let u in data) {
+                        let uo = data[u];
+                        let e = $(`<li>${u} - ${uo.status}</li>`);
+                        userlist.append(e);
+                    }
+                });
+            }
+
+            getUsers();
+        // jQuery.ajax({
+        //     type:"GET",
+        //     URL:"http://localhost:8888/getusers",
+
+        //     success:function(data)
+        //     {
+        //         console.log("data:"+data);
+        //     }
+
+        // });
+-->
+        </script>
+
+</body>
+
+</html>

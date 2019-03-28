@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+    <style>
+        .maincontainer {
+            display: table;
+            flex-direction: row;
+            box-sizing: border-box;
+        }
+
+        .container {
+            display: table-cell;
+            flex-basis: 60%;
+            margin: auto;
+            box-sizing: border-box;
+        }
+
+        .userlistcontainer {
+            display: table-cell;
+            flex-basis: 40%;
+            box-sizing: border-box;
+        }
+
+        #tabbar {
+            width: 100%;
+            background-color: #f7f7f7;
+        }
+
+        #tabbar div {
+            vertical-align: center;
+            display: inline-block;
+            height: 2rem;
+            margin: 0;
+            padding: 10px 40px;
+            background-color: #f0f0f0;
+            transition: 0.2s linear;
+            cursor: pointer;
+        }
+
+        #tabbar div.active {
+            background-color: #ffcccc;
+            transition: 0.2s linear;
+        }
+
+        #tabcontainer {
+            width: 100%;
+            position: relative;
+        }
+
+        #tabcontainer .tabcontent {
+            width: 100%;
+            position: absolute;
+            left: 0;
+            top: 0;
+        }
+
+        #tabcontainer .tabcontent textarea {
+            display: block;
+            width: 100%;
+            margin: 0;
+            padding: 20px;
+            height: 75vh;
+        }
+    </style>
+
+    <script>
+
+        function ChatTab()
+        {
+            this.tab=null;
+            this.content=null;
+            this.sessionid=0;
+
+            setuser(username)
+            {
+                //send 
+            } 
+        }
+
+        let n = 3;
+
+        let activetab = null;
+        let tablist = [];
+
+        $(document).ready(() => {
+            let tabbar = $('#tabbar');
+            let tabcontainer = $('#tabcontainer');
+            let tabcontent = $('.tabcontent');
+
+            for (let i = 0; i < n; i++) {
+                let t = $(`<div>Tab${i}</div>`);
+                tabbar.append(t);
+                let tc = tabcontent.clone();
+                // tc.css('display','block');
+                tabcontainer.append(tc);
+                let tab = {};
+                tab['tab'] = t;
+                tab['content'] = tc;
+                tab['sessionid'] = 0;
+
+                t.click(() => {
+                    activetab.content.css('display', 'none');
+                    activetab.tab.removeClass('active');
+
+                    tab.content.css('display', 'block');
+                    tab.tab.addClass('active');
+
+                    activetab = tab;
+                    //activetab.select('input').focus();
+                });
+
+                tablist.push(tab);
+            }
+            activetab = tablist[0];
+            activetab.content.css('display', 'block');
+            activetab.tab.addClass('active');
+        });//document.ready
+    </script>
+</head>
+
+<body>
+
+    <div class="tabcontent" style="display:none">
+        <div>
+            <textarea></textarea>
+            <input type="text" />
+            <button>Send</button>
+            <button>Close</button>
+        </div>
+    </div>
+
+    <div class="maincontaier">
+        <div class="container">
+
+            <div id="tabbar">
+
+            </div>
+            <div id="tabcontainer">
+
+            </div>
+        </div>
+
+        <div class="userlistcontainer">
+            <h1>Active Users</h1>
+            <ul id="userlist">
+                <li>1</li>
+                <li>2</li>
+                <li>3</li>
+                <li>4</li>
+                <li>5</li>
+                <li>6</li>
+                <li>7</li>
+                <li>8</li>
+                <li>9</li>
+                <li>10</li>
+            </ul>
+            <br>
+            &nbsp;
+            &nbsp;
+            &nbsp;
+            &nbsp;
+            &nbsp; <button onclick="window.open('http://localhost:8888/addagentstatus')">Start</button>
+
+
+            &nbsp;
+            &nbsp;
+            &nbsp;
+            &nbsp;<button onclick="window.open('http://localhost:8888/addagentstatusclose')">
+                Close
+            </button>
+            &nbsp;
+            &nbsp;
+            &nbsp;
+            &nbsp;
+            <button class="button2" onclick="window.open('http://localhost:8888/getusers')">
+                User List
+            </button>
+        </div>
+        <script>
+
+            window.setInterval(() => {
+                getUsers();
+            }, 5000);
+
+            function getUsers()
+            {
+                $.get("http://localhost:8888/getusers", (data) => {
+                    console.log(data);
+                    const userlist = $('#userlist');
+                    userlist.empty();
+                    for (let u in data) {
+                        let uo=data[u];
+                        let e = $(`<li>${u} - ${uo.status}</li>`);
+                        userlist.append(e);
+                    }
+                });
+            }
+
+            getUsers();
+        // jQuery.ajax({
+        //     type:"GET",
+        //     URL:"http://localhost:8888/getusers",
+
+        //     success:function(data)
+        //     {
+        //         console.log("data:"+data);
+        //     }
+
+        // });
+
+        </script>
+
+</body>
+
+</html>
